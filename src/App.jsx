@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { RotateCcw, RefreshCw, Trophy, Sparkles, Sun, Moon, Info, Unlock } from 'lucide-react';
+import { RotateCcw, RefreshCw, Trophy, Sparkles, Sun, Moon, Unlock, Users, Copy, Check, Link, Globe, ShieldAlert } from 'lucide-react';
+import Peer from 'peerjs';
 
 // 6 Clean 2D Colors for scaling difficulties
 const ALL_COLORS = [
@@ -29,11 +30,26 @@ export default function DifficultyColorGame() {
   const [timer, setTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [hasWon, setHasWon] = useState(false);
+  const [winnerName, setWinnerName] = useState(null);
   const [showWinModal, setShowWinModal] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
       (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+
+  // Multiplayer State
+  const [myPeerId, setMyPeerId] = useState('');
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [isHost, setIsHost] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [opponentProgress, setOpponentProgress] = useState(null); // { moves, time, won }
+  const [peerError, setPeerError] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showMultiplayerModal, setShowMultiplayerModal] = useState(false);
+
+  const peerRef = useRef(null);
+  const connRef = useRef(null);
 
   useEffect(() => {
     if (darkMode) {
@@ -44,6 +60,122 @@ export default function DifficultyColorGame() {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
+
+  // PeerJS setup
+  useEffect(() => {
+    const peer = new Peer();
+    peerRef.current = peer;
+
+    peer.on('open', (id) => {
+      setMyPeerId(id);
+    });
+
+    peer.on('connection', (conn) => {
+      connRef.current = conn;
+      setIsHost(true);
+      setIsConnected(true);
+      setPeerError(null);
+      setupConnectionListeners(conn);
+      
+      // Sync initial game board to guest
+      const currentBoardState = {
+        type: 'INIT_GAME',
+        difficulty,
+        pegs: pegsRef.current
+      };
+      conn.send(currentBoardState);
+    });
+
+    peer.on('error', (err) => {
+      setPeerError('Connection error: ' + err.message);
+      setIsConnecting(false);
+    });
+
+    return () => {
+      if (peerRef.current) peerRef.current.destroy();
+    };
+  }, []);
+
+  const pegsRef = useRef(pegs);
+  useEffect(() => {
+    pegsRef.current = pegs;
+  }, [pegs]);
+
+  const setupConnectionListeners = (conn) => {
+    conn.on('data', (data) => {
+      if (data.type === 'INIT_GAME') {
+        setDifficulty(data.difficulty);
+        setPegs(data.pegs);
+        setMoves(0);
+        setTimer(0);
+        setTimerRunning(false);
+        setHasWon(false);
+        setShowWinModal(false);
+        setWinnerName(null);
+        setOpponentProgress(null);
+      } else if (data.type === 'SYNC_MOVE') {
+        setOpponentProgress({
+          moves: data.moves,
+          timer: data.timer,
+          won: data.won
+        });
+        if (data.won) {
+          setWinnerName('Opponent');
+          setShowWinModal(true);
+          setTimerRunning(false);
+        }
+      } else if (data.type === 'RESTART_GAME') {
+        setPegs(data.pegs);
+        setMoves(0);
+        setTimer(0);
+        setTimerRunning(false);
+        setHasWon(false);
+        setShowWinModal(false);
+        setWinnerName(null);
+        setOpponentProgress(null);
+      }
+    });
+
+    conn.on('close', () => {
+      setIsConnected(false);
+      setOpponentProgress(null);
+      setPeerError('Opponent disconnected.');
+    });
+  };
+
+  const createRoom = () => {
+    setIsHost(true);
+    setShowMultiplayerModal(true);
+  };
+
+  const joinRoom = () => {
+    if (!roomCodeInput.trim()) return;
+    setIsConnecting(true);
+    setPeerError(null);
+
+    const conn = peerRef.current.connect(roomCodeInput.trim().toLowerCase());
+    connRef.current = conn;
+
+    conn.on('open', () => {
+      setIsConnecting(false);
+      setIsConnected(true);
+      setIsHost(false);
+      setShowMultiplayerModal(false);
+      setupConnectionListeners(conn);
+    });
+
+    conn.on('error', (err) => {
+      setPeerError('Failed to join room: ' + err.message);
+      setIsConnecting(false);
+    });
+  };
+
+  const copyRoomCode = () => {
+    if (!myPeerId) return;
+    navigator.clipboard.writeText(myPeerId);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
 
   // Initialize & Scramble based on chosen difficulty
   const initGame = (diffKey = difficulty) => {
@@ -63,7 +195,7 @@ export default function DifficultyColorGame() {
 
     const newPegs = Array.from({ length: config.pegCount }, () => []);
     let idx = 0;
-    const filledPegCount = config.colorCount; // Leave 1 or more empty pegs
+    const filledPegCount = config.colorCount;
     for (let p = 0; p < filledPegCount; p++) {
       for (let r = 0; r < config.itemsPerColor; r++) {
         newPegs[p].push({
@@ -80,6 +212,16 @@ export default function DifficultyColorGame() {
     setTimerRunning(false);
     setHasWon(false);
     setShowWinModal(false);
+    setWinnerName(null);
+    setOpponentProgress(null);
+
+    // If in multiplayer and host, send board state to opponent
+    if (isConnected && connRef.current) {
+      connRef.current.send({
+        type: 'RESTART_GAME',
+        pegs: newPegs
+      });
+    }
   };
 
   useEffect(() => {
@@ -105,8 +247,7 @@ export default function DifficultyColorGame() {
   };
 
   // Check Win Condition:
-  // When all required colors are sorted into single-color stacks of exact count
-  const checkWinCondition = (currentPegs) => {
+  const checkWinCondition = (currentPegs, currentMoves, currentTimer) => {
     let sortedPegCount = 0;
     for (let p = 0; p < currentPegs.length; p++) {
       const stack = currentPegs[p];
@@ -123,9 +264,19 @@ export default function DifficultyColorGame() {
 
     if (sortedPegCount === currentConfig.colorCount) {
       setHasWon(true);
+      setWinnerName('You');
       setTimerRunning(false);
       setShowWinModal(true);
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+
+      if (isConnected && connRef.current) {
+        connRef.current.send({
+          type: 'SYNC_MOVE',
+          moves: currentMoves,
+          timer: currentTimer,
+          won: true
+        });
+      }
       return true;
     }
     return false;
@@ -160,15 +311,26 @@ export default function DifficultyColorGame() {
         newPegs[sourcePeg] = sourceStack;
         newPegs[targetPeg] = targetStack;
 
+        const newMoves = moves + 1;
         setPegs(newPegs);
         setSelectedPeg(null);
-        setMoves(m => m + 1);
+        setMoves(newMoves);
 
         if (!timerRunning && moves === 0) {
           setTimerRunning(true);
         }
 
-        checkWinCondition(newPegs);
+        const isWin = checkWinCondition(newPegs, newMoves, timer);
+
+        // Sync move to multiplayer opponent
+        if (isConnected && connRef.current && !isWin) {
+          connRef.current.send({
+            type: 'SYNC_MOVE',
+            moves: newMoves,
+            timer,
+            won: false
+          });
+        }
       } else {
         setSelectedPeg(null);
       }
@@ -190,19 +352,52 @@ export default function DifficultyColorGame() {
                 Scrrrambal
               </h1>
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Free Transfer & Sorting Mode
+                {isConnected ? '🔴 Live 1v1 Race' : 'Free Transfer & Sorting Mode'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition active:scale-95 touch-manipulation"
-            title="Toggle Dark Mode"
-          >
-            {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMultiplayerModal(true)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition active:scale-95 touch-manipulation border ${
+                isConnected
+                  ? 'bg-emerald-500 text-white border-emerald-600 shadow-md shadow-emerald-500/20'
+                  : 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>{isConnected ? '1v1 Active' : 'Multiplayer'}</span>
+            </button>
+
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition active:scale-95 touch-manipulation"
+              title="Toggle Dark Mode"
+            >
+              {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
+            </button>
+          </div>
         </header>
+
+        {/* Live Multiplayer Status Bar (if connected) */}
+        {isConnected && (
+          <div className="w-full max-w-4xl mb-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
+                Connected with Opponent!
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4 text-xs font-bold">
+              <div>
+                <span className="text-slate-400 mr-1">Opponent Moves:</span>
+                <span className="text-slate-800 dark:text-white font-mono">{opponentProgress?.moves || 0}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Difficulty Selection Bar */}
         <div className="w-full max-w-4xl mb-4 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
@@ -222,11 +417,12 @@ export default function DifficultyColorGame() {
                 <button
                   key={level}
                   onClick={() => handleDifficultyChange(level)}
+                  disabled={isConnected && !isHost}
                   className={`flex-1 py-2 px-2 rounded-xl text-xs font-black capitalize transition-all border touch-manipulation active:scale-95 ${
                     isActive
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
                       : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-transparent hover:bg-slate-200 dark:hover:bg-slate-600'
-                  }`}
+                  } ${isConnected && !isHost ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {level}
                 </button>
@@ -344,6 +540,93 @@ export default function DifficultyColorGame() {
           <div className="w-full h-4 bg-amber-400 rounded-lg border-t-2 border-amber-500 z-10" />
         </main>
 
+        {/* Multiplayer Room Modal */}
+        <AnimatePresence>
+          {showMultiplayerModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 max-w-md w-full"
+              >
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+                      1v1 Multiplayer Room
+                    </h2>
+                  </div>
+                  <button
+                    onClick={() => setShowMultiplayerModal(false)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold px-2 py-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {peerError && (
+                  <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs font-semibold flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    <span>{peerError}</span>
+                  </div>
+                )}
+
+                {/* Host Section */}
+                <div className="mb-6 bg-indigo-50 dark:bg-indigo-950/40 p-4 rounded-2xl border border-indigo-200 dark:border-indigo-900/50">
+                  <h3 className="text-xs font-extrabold uppercase text-indigo-600 dark:text-indigo-400 mb-2">
+                    Host a Game (Share Your Code)
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={myPeerId || 'Generating room code...'}
+                      className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl text-xs font-mono font-bold text-slate-700 dark:text-slate-200"
+                    />
+                    <button
+                      onClick={copyRoomCode}
+                      disabled={!myPeerId}
+                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition active:scale-95"
+                    >
+                      {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      <span>{copiedCode ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Join Section */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <h3 className="text-xs font-extrabold uppercase text-slate-500 mb-2">
+                    Join Opponent Room Code
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Paste opponent room code..."
+                      value={roomCodeInput}
+                      onChange={(e) => setRoomCodeInput(e.target.value)}
+                      className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl text-xs font-mono text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      onClick={joinRoom}
+                      disabled={isConnecting || !roomCodeInput.trim()}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition active:scale-95"
+                    >
+                      {isConnecting ? 'Connecting...' : 'Join'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Win Modal */}
         <AnimatePresence>
           {showWinModal && (
@@ -363,10 +646,14 @@ export default function DifficultyColorGame() {
                   <Trophy className="w-8 h-8" />
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">
-                  Puzzle Solved!
+                  {winnerName ? `${winnerName} Won!` : 'Puzzle Solved!'}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                  You successfully sorted all dice blocks onto matching poles!
+                  {winnerName === 'You'
+                    ? 'Congratulations! You solved the puzzle first!'
+                    : winnerName === 'Opponent'
+                    ? 'Your opponent finished sorting their dice first!'
+                    : 'You successfully sorted all dice blocks onto matching poles!'}
                 </p>
 
                 {/* Score & Time Summary */}
