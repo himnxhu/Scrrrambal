@@ -436,7 +436,7 @@ export default function DifficultyColorGame() {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>{isConnected ? '1v1 Active' : 'Multiplayer'}</span>
+              <span>{isConnected ? 'Friends Room Active' : 'Play with Friends'}</span>
             </button>
 
             <button
@@ -628,7 +628,7 @@ export default function DifficultyColorGame() {
                   <div className="flex items-center gap-2">
                     <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-                      1v1 Multiplayer Room
+                      Play with Friends
                     </h2>
                   </div>
                   <button
