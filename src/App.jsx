@@ -177,19 +177,19 @@ export default function DifficultyColorGame() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col items-center py-6 px-4 font-sans">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col items-center py-4 px-2 sm:px-4 font-sans safe-padding">
         
         {/* Header */}
-        <header className="w-full max-w-4xl flex items-center justify-between mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-indigo-600 rounded-2xl text-white">
-              <Sparkles className="w-6 h-6" />
+        <header className="w-full max-w-4xl flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 sm:p-3 bg-indigo-600 rounded-2xl text-white shadow-md shadow-indigo-500/20">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                Color Dice Swap Puzzle
+              <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+                Color Dice Swap
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
                 Free Transfer & Sorting Mode
               </p>
             </div>
@@ -197,7 +197,7 @@ export default function DifficultyColorGame() {
 
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+            className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition active:scale-95 touch-manipulation"
             title="Toggle Dark Mode"
           >
             {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
@@ -205,19 +205,24 @@ export default function DifficultyColorGame() {
         </header>
 
         {/* Difficulty Selection Bar */}
-        <div className="w-full max-w-4xl mb-6 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs font-extrabold uppercase text-slate-400 px-2">
-            Select Difficulty:
-          </span>
+        <div className="w-full max-w-4xl mb-4 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+            <span className="text-[10px] sm:text-xs font-extrabold uppercase text-slate-400">
+              Difficulty:
+            </span>
+            <span className="text-[11px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 sm:hidden">
+              {currentConfig.label}
+            </span>
+          </div>
 
-          <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="flex items-center gap-1.5 w-full sm:flex-1 sm:max-w-md">
             {Object.keys(DIFFICULTY_SETTINGS).map((level) => {
               const isActive = difficulty === level;
               return (
                 <button
                   key={level}
                   onClick={() => handleDifficultyChange(level)}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black capitalize transition-all border ${
+                  className={`flex-1 py-2 px-2 rounded-xl text-xs font-black capitalize transition-all border touch-manipulation active:scale-95 ${
                     isActive
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
                       : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-transparent hover:bg-slate-200 dark:hover:bg-slate-600'
@@ -229,51 +234,53 @@ export default function DifficultyColorGame() {
             })}
           </div>
 
-          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800">
+          <span className="hidden sm:inline-block text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800">
             {currentConfig.label}
           </span>
         </div>
 
         {/* Stats & Actions */}
-        <div className="w-full max-w-4xl grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase text-slate-400">Moves</span>
-            <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{moves}</span>
+        <div className="w-full max-w-4xl grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+          <div className="bg-white dark:bg-slate-800 p-2.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left">
+            <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-400">Moves</span>
+            <span className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400">{moves}</span>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase text-slate-400">Time</span>
-            <span className="text-2xl font-black font-mono text-slate-700 dark:text-slate-200">{formatTime(timer)}</span>
+          <div className="bg-white dark:bg-slate-800 p-2.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left">
+            <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-400">Time</span>
+            <span className="text-xl sm:text-2xl font-black font-mono text-slate-700 dark:text-slate-200">{formatTime(timer)}</span>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+          <div className="bg-white dark:bg-slate-800 p-1.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-1 sm:gap-2">
             <button
               onClick={() => initGame(difficulty)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition"
+              className="flex-1 flex items-center justify-center gap-1 py-2 px-2 bg-slate-100 dark:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition touch-manipulation"
+              title="Reset current puzzle"
             >
-              <RotateCcw className="w-4 h-4" /> Reset
+              <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Reset</span>
             </button>
             <button
               onClick={() => initGame(difficulty)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition"
+              className="flex-1 flex items-center justify-center gap-1 py-2 px-2 bg-indigo-600 active:bg-indigo-700 text-white font-bold rounded-xl text-xs transition touch-manipulation"
+              title="Scramble new puzzle"
             >
-              <RefreshCw className="w-4 h-4" /> Scramble
+              <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Scramble</span>
             </button>
           </div>
         </div>
 
         {/* Instructions */}
-        <div className="mb-4 text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800">
-          <Unlock className="w-4 h-4" />
-          Click any pole to pick up top dice, then click ANY other pole to transfer it!
+        <div className="mb-3 text-[11px] sm:text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 w-full max-w-4xl text-center">
+          <Unlock className="w-3.5 h-3.5 shrink-0" />
+          <span>Tap pole to pick top dice, tap target pole to move!</span>
         </div>
 
         {/* 2D Stage */}
-        <main className="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8 flex flex-col items-center relative overflow-hidden">
+        <main className="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-2 sm:p-6 flex flex-col items-center relative overflow-hidden shadow-sm">
           
           <div 
-            className="w-full flex justify-around items-end relative pb-4 select-none transition-all duration-300"
-            style={{ height: `${currentConfig.maxCapacity * 32 + 60}px` }}
+            className="w-full flex justify-around items-end relative pb-2 select-none transition-all duration-300"
+            style={{ height: `${currentConfig.maxCapacity * 30 + 50}px` }}
           >
             {pegs.map((stack, pegIdx) => {
               const isSelected = selectedPeg === pegIdx;
@@ -282,25 +289,25 @@ export default function DifficultyColorGame() {
                 <div
                   key={`peg-${pegIdx}`}
                   onClick={() => handlePegClick(pegIdx)}
-                  className="relative flex flex-col items-center justify-end h-full flex-1 max-w-[130px] cursor-pointer group"
+                  className="relative flex flex-col items-center justify-end h-full flex-1 max-w-[120px] cursor-pointer group touch-manipulation px-0.5"
                 >
                   {/* Selection Border */}
                   <div
-                    className={`absolute inset-0 rounded-2xl transition-all ${
+                    className={`absolute inset-0 rounded-xl sm:rounded-2xl transition-all ${
                       isSelected
-                        ? 'bg-indigo-500/10 border-2 border-indigo-500'
-                        : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-700/50'
+                        ? 'bg-indigo-500/15 border-2 border-indigo-500 shadow-md shadow-indigo-500/10'
+                        : 'active:bg-slate-100 dark:active:bg-slate-700/50'
                     }`}
                   />
 
                   {/* 2D Flat Pole Bar (height matches maxCapacity dice) */}
                   <div 
-                    className="w-4 bg-slate-300 dark:bg-slate-600 rounded-t-lg z-0 relative transition-all duration-300"
-                    style={{ height: `${currentConfig.maxCapacity * 30 + 12}px` }}
+                    className="w-3 sm:w-4 bg-slate-300 dark:bg-slate-600 rounded-t-lg z-0 relative transition-all duration-300"
+                    style={{ height: `${currentConfig.maxCapacity * 28 + 10}px` }}
                   />
 
                   {/* Stack of 2D Dice Blocks */}
-                  <div className="absolute bottom-4 flex flex-col-reverse items-center w-full z-10">
+                  <div className="absolute bottom-3.5 flex flex-col-reverse items-center w-full z-10 px-0.5">
                     <AnimatePresence mode="popLayout">
                       {stack.map((item, stackIdx) => {
                         const isTopItem = stackIdx === stack.length - 1;
@@ -311,22 +318,22 @@ export default function DifficultyColorGame() {
                           <motion.div
                             key={item.id}
                             layout
-                            initial={{ y: -100, opacity: 0 }}
+                            initial={{ y: -60, opacity: 0 }}
                             animate={{ 
-                              y: isLifted ? -35 : 0, 
+                              y: isLifted ? -30 : 0, 
                               opacity: 1 
                             }}
-                            exit={{ y: -60, opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                            className={`w-[86%] h-6 sm:h-7 my-0.5 rounded-md ${colorInfo.bg} border ${colorInfo.border} z-20 shadow-xs`}
+                            exit={{ y: -40, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                            className={`w-full max-w-[92%] h-5 sm:h-6 my-0.5 rounded sm:rounded-md ${colorInfo.bg} border ${colorInfo.border} z-20 shadow-xs`}
                           />
                         );
                       })}
                     </AnimatePresence>
                   </div>
 
-                  <div className="mt-2 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase z-10">
-                    Pole {pegIdx + 1}
+                  <div className="mt-1 text-[10px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase z-10">
+                    P{pegIdx + 1}
                   </div>
                 </div>
               );

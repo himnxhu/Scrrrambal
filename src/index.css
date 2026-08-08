@@ -4,7 +4,20 @@
 @layer base {
   body {
     @apply bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 font-sans antialiased min-h-screen selection:bg-indigo-500 selection:text-white;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    overscroll-behavior-y: none;
   }
+}
+
+/* iOS Safe Area Padding */
+.safe-padding {
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
 }
 
 @keyframes shake {
