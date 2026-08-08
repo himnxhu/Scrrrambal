@@ -337,9 +337,78 @@ export default function DifficultyColorGame() {
     }
   };
 
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col items-center py-4 px-2 sm:px-4 font-sans safe-padding">
+      {/* Page Load / Refresh Splash Screen Animation */}
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.5, ease: "easeInOut" } }}
+            className="fixed inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center text-white"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, type: "spring", stiffness: 260, damping: 20 }}
+              className="flex flex-col items-center gap-4"
+            >
+              <div className="relative flex items-center justify-center">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                  className="absolute inset-0 -m-3 rounded-3xl border-2 border-dashed border-indigo-500/50"
+                />
+                <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-indigo-500/50">
+                  <Sparkles className="w-10 h-10 text-white animate-bounce" />
+                </div>
+              </div>
+
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
+                className="text-center"
+              >
+                <h1 className="text-3xl font-black tracking-wider text-white mb-1">
+                  Scrrrambal
+                </h1>
+                <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest">
+                  Loading Game World...
+                </p>
+              </motion.div>
+
+              {/* Animated Dice Bars Loader */}
+              <div className="flex gap-1.5 mt-2">
+                {['bg-cyan-500', 'bg-rose-500', 'bg-amber-400', 'bg-purple-500'].map((color, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ y: [-4, 4, -4] }}
+                    transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }}
+                    className={`w-3 h-8 rounded-full ${color}`}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: isLoading ? 0 : 1, y: isLoading ? 15 : 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col items-center py-4 px-2 sm:px-4 font-sans safe-padding"
+      >
         
         {/* Header */}
         <header className="w-full max-w-4xl flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
@@ -679,7 +748,7 @@ export default function DifficultyColorGame() {
           )}
         </AnimatePresence>
 
-      </div>
+      </motion.div>
     </div>
   );
 }
