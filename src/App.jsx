@@ -546,29 +546,6 @@ export default function DifficultyColorGame() {
           <span>Tap pole to pick top dice, tap target pole to move!</span>
         </div>
 
-        {/* Limit Reached Alert Banner */}
-        <AnimatePresence>
-          {limitAlert && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className="mb-3 w-full max-w-4xl bg-rose-500/15 dark:bg-rose-500/25 border border-rose-500/40 text-rose-600 dark:text-rose-300 px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs font-bold shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 animate-bounce" />
-                <span>{limitAlert}</span>
-              </div>
-              <button 
-                onClick={() => setLimitAlert(null)}
-                className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 font-extrabold px-1.5"
-              >
-                ✕
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* 2D Stage */}
         <main className="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-2 sm:p-6 flex flex-col items-center relative overflow-hidden shadow-sm">
           
@@ -586,13 +563,6 @@ export default function DifficultyColorGame() {
                   onClick={() => handlePegClick(pegIdx)}
                   className="relative flex flex-col items-center justify-end h-full flex-1 max-w-[120px] cursor-pointer group touch-manipulation px-0.5"
                 >
-                  {/* Limit indicator badge on pole if full */}
-                  {isFull && (
-                    <span className="absolute -top-1 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider z-30 animate-pulse">
-                      Full ({stack.length}/{currentConfig.maxCapacity})
-                    </span>
-                  )}
-
                   {/* Selection Border & Hit Target */}
                   <div
                     className={`absolute inset-0 rounded-xl sm:rounded-2xl transition-all pointer-events-none ${
@@ -645,6 +615,29 @@ export default function DifficultyColorGame() {
           {/* Flat Base */}
           <div className="w-full h-4 bg-amber-400 rounded-lg border-t-2 border-amber-500 z-10" />
         </main>
+
+        {/* Limit Reached Alert Banner (Under Playing Panel) */}
+        <AnimatePresence>
+          {limitAlert && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="mt-4 w-full max-w-4xl bg-rose-500/15 dark:bg-rose-500/25 border border-rose-500/40 text-rose-600 dark:text-rose-300 px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs font-bold shadow-sm"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 animate-bounce" />
+                <span>{limitAlert}</span>
+              </div>
+              <button 
+                onClick={() => setLimitAlert(null)}
+                className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 font-extrabold px-1.5"
+              >
+                ✕
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Multiplayer Room Modal */}
         <AnimatePresence>
