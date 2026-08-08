@@ -487,9 +487,9 @@ export default function DifficultyColorGame() {
                   onClick={() => handlePegClick(pegIdx)}
                   className="relative flex flex-col items-center justify-end h-full flex-1 max-w-[120px] cursor-pointer group touch-manipulation px-0.5"
                 >
-                  {/* Selection Border */}
+                  {/* Selection Border & Hit Target */}
                   <div
-                    className={`absolute inset-0 rounded-xl sm:rounded-2xl transition-all ${
+                    className={`absolute inset-0 rounded-xl sm:rounded-2xl transition-all pointer-events-none ${
                       isSelected
                         ? 'bg-indigo-500/15 border-2 border-indigo-500 shadow-md shadow-indigo-500/10'
                         : 'active:bg-slate-100 dark:active:bg-slate-700/50'
@@ -498,12 +498,12 @@ export default function DifficultyColorGame() {
 
                   {/* 2D Flat Pole Bar (height matches maxCapacity dice) */}
                   <div 
-                    className="w-3 sm:w-4 bg-slate-300 dark:bg-slate-600 rounded-t-lg z-0 relative transition-all duration-300"
+                    className="w-3 sm:w-4 bg-slate-300 dark:bg-slate-600 rounded-t-lg z-0 relative transition-all duration-300 pointer-events-none"
                     style={{ height: `${currentConfig.maxCapacity * 28 + 10}px` }}
                   />
 
                   {/* Stack of 2D Dice Blocks */}
-                  <div className="absolute bottom-3.5 flex flex-col-reverse items-center w-full z-10 px-0.5">
+                  <div className="absolute bottom-3.5 flex flex-col-reverse items-center w-full z-10 px-0.5 pointer-events-none">
                     <AnimatePresence mode="popLayout">
                       {stack.map((item, stackIdx) => {
                         const isTopItem = stackIdx === stack.length - 1;
@@ -521,7 +521,7 @@ export default function DifficultyColorGame() {
                             }}
                             exit={{ y: -40, opacity: 0 }}
                             transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                            className={`w-full max-w-[92%] h-5 sm:h-6 my-0.5 rounded sm:rounded-md ${colorInfo.bg} border ${colorInfo.border} z-20 shadow-xs`}
+                            className={`w-full max-w-[92%] h-5 sm:h-6 my-0.5 rounded sm:rounded-md ${colorInfo.bg} border ${colorInfo.border} z-20 shadow-xs pointer-events-none`}
                           />
                         );
                       })}
