@@ -187,7 +187,7 @@ export default function DifficultyColorGame() {
             </div>
             <div>
               <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
-                Color Dice Swap
+                Scrrrambal
               </h1>
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
                 Free Transfer & Sorting Mode
