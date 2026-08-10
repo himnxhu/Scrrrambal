@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti';
 import { RotateCcw, RefreshCw, Trophy, Sparkles, Sun, Moon, Unlock, Users, Copy, Check, Link, Globe, ShieldAlert } from 'lucide-react';
 import Peer from 'peerjs';
 
-// 6 Clean 2D Colors for scaling difficulties
+// 10 Clean 2D Colors for scaling difficulties
 const ALL_COLORS = [
   { id: 'cyan', name: 'Cyan', bg: 'bg-cyan-500', border: 'border-cyan-600' },
   { id: 'rose', name: 'Rose', bg: 'bg-rose-500', border: 'border-rose-600' },
@@ -12,24 +12,40 @@ const ALL_COLORS = [
   { id: 'purple', name: 'Purple', bg: 'bg-purple-500', border: 'border-purple-600' },
   { id: 'emerald', name: 'Emerald', bg: 'bg-emerald-500', border: 'border-emerald-600' },
   { id: 'orange', name: 'Orange', bg: 'bg-orange-500', border: 'border-orange-600' },
+  { id: 'indigo', name: 'Indigo', bg: 'bg-indigo-500', border: 'border-indigo-600' },
+  { id: 'pink', name: 'Pink', bg: 'bg-pink-500', border: 'border-pink-600' },
+  { id: 'teal', name: 'Teal', bg: 'bg-teal-500', border: 'border-teal-600' },
+  { id: 'lime', name: 'Lime', bg: 'bg-lime-500', border: 'border-lime-600' },
 ];
 
 const DIFFICULTY_SETTINGS = {
-  easy: { name: 'Easy', colorCount: 3, pegCount: 4, itemsPerColor: 5, maxCapacity: 5, label: '3 Colors (5 Dice ea.) • Limit 5/Pole' },
-  medium: { name: 'Medium', colorCount: 4, pegCount: 5, itemsPerColor: 6, maxCapacity: 6, label: '4 Colors (6 Dice ea.) • Limit 6/Pole' },
-  hard: { name: 'Hard', colorCount: 5, pegCount: 6, itemsPerColor: 8, maxCapacity: 8, label: '5 Colors (8 Dice ea.) • Limit 8/Pole' },
+  easy: { name: 'Easy', colorCount: 3, pegCount: 4, itemsPerColor: 6, maxCapacity: 6, label: '3 Colors (6 Dice ea.) • Limit 6/Pole' },
+  medium: { name: 'Medium', colorCount: 4, pegCount: 5, itemsPerColor: 8, maxCapacity: 8, label: '4 Colors (8 Dice ea.) • Limit 8/Pole' },
+  hard: { name: 'Hard', colorCount: 5, pegCount: 6, itemsPerColor: 10, maxCapacity: 10, label: '5 Colors (10 Dice ea.) • Limit 10/Pole' },
+  expert: { name: 'Expert', colorCount: 6, pegCount: 7, itemsPerColor: 10, maxCapacity: 10, label: '6 Colors (10 Dice ea.) • Limit 10/Pole' }
+};
+
+const SPECIAL_MODES = {
+  classic: { id: 'classic', name: 'Classic', desc: 'Standard sorting without extra constraints' },
+  timeLimit: { id: 'timeLimit', name: 'Time Attack', desc: 'Race against countdown clock!', defaultTime: 120 },
+  moveLimit: { id: 'moveLimit', name: 'Min Swaps', desc: 'Strict move limit! Every swap counts.', getMoveLimit: (itemCount) => Math.floor(itemCount * 3.5) },
+  hardcore: { id: 'hardcore', name: 'Nightmare', desc: 'Only 1 spare empty pole + strict move/time limits!' }
 };
 
 export default function DifficultyColorGame() {
   const [difficulty, setDifficulty] = useState('medium');
+  const [gameMode, setGameMode] = useState('classic'); // 'classic', 'timeLimit', 'moveLimit', 'hardcore'
   const currentConfig = DIFFICULTY_SETTINGS[difficulty];
 
   const [pegs, setPegs] = useState([]);
   const [selectedPeg, setSelectedPeg] = useState(null);
   const [moves, setMoves] = useState(0);
   const [timer, setTimer] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [hasWon, setHasWon] = useState(false);
+  const [hasLost, setHasLost] = useState(false);
+  const [lossReason, setLossReason] = useState('');
   const [winnerName, setWinnerName] = useState(null);
   const [showWinModal, setShowWinModal] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
@@ -81,6 +97,7 @@ export default function DifficultyColorGame() {
       const currentBoardState = {
         type: 'INIT_GAME',
         difficulty,
+        gameMode,
         pegs: pegsRef.current
       };
       conn.send(currentBoardState);
@@ -105,11 +122,13 @@ export default function DifficultyColorGame() {
     conn.on('data', (data) => {
       if (data.type === 'INIT_GAME') {
         setDifficulty(data.difficulty);
+        if (data.gameMode) setGameMode(data.gameMode);
         setPegs(data.pegs);
         setMoves(0);
         setTimer(0);
         setTimerRunning(false);
         setHasWon(false);
+        setHasLost(false);
         setShowWinModal(false);
         setWinnerName(null);
         setOpponentProgress(null);
@@ -130,6 +149,7 @@ export default function DifficultyColorGame() {
         setTimer(0);
         setTimerRunning(false);
         setHasWon(false);
+        setHasLost(false);
         setShowWinModal(false);
         setWinnerName(null);
         setOpponentProgress(null);
@@ -177,8 +197,22 @@ export default function DifficultyColorGame() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  // Initialize & Scramble based on chosen difficulty
-  const initGame = (diffKey = difficulty) => {
+  // Helper for max moves allowed in swap limit modes
+  const getMaxAllowedMoves = () => {
+    const totalDice = currentConfig.colorCount * currentConfig.itemsPerColor;
+    if (gameMode === 'hardcore') return Math.floor(totalDice * 3.0);
+    if (gameMode === 'moveLimit') return Math.floor(totalDice * 3.8);
+    return null;
+  };
+
+  const getInitialTimeLimit = () => {
+    if (gameMode === 'timeLimit') return 120;
+    if (gameMode === 'hardcore') return 90;
+    return 0;
+  };
+
+  // Initialize & Scramble based on chosen difficulty and mode
+  const initGame = (diffKey = difficulty, modeKey = gameMode) => {
     const config = DIFFICULTY_SETTINGS[diffKey];
     let pool = [];
     for (let c = 0; c < config.colorCount; c++) {
@@ -193,7 +227,9 @@ export default function DifficultyColorGame() {
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
 
-    const newPegs = Array.from({ length: config.pegCount }, () => []);
+    // Hardcore mode only gives 1 extra empty peg instead of default (which gives pegCount = colorCount + 1 or +2)
+    const effectivePegCount = modeKey === 'hardcore' ? config.colorCount + 1 : config.pegCount;
+    const newPegs = Array.from({ length: effectivePegCount }, () => []);
     let idx = 0;
     const filledPegCount = config.colorCount;
     for (let p = 0; p < filledPegCount; p++) {
@@ -209,8 +245,14 @@ export default function DifficultyColorGame() {
     setSelectedPeg(null);
     setMoves(0);
     setTimer(0);
+    if (modeKey === 'timeLimit') setTimeRemaining(120);
+    else if (modeKey === 'hardcore') setTimeRemaining(90);
+    else setTimeRemaining(0);
+
     setTimerRunning(false);
     setHasWon(false);
+    setHasLost(false);
+    setLossReason('');
     setShowWinModal(false);
     setWinnerName(null);
     setOpponentProgress(null);
@@ -225,16 +267,31 @@ export default function DifficultyColorGame() {
   };
 
   useEffect(() => {
-    initGame(difficulty);
-  }, [difficulty]);
+    initGame(difficulty, gameMode);
+  }, [difficulty, gameMode]);
 
+  // Timer logic for stop-watch or countdown
   useEffect(() => {
     let interval = null;
-    if (timerRunning && !hasWon) {
-      interval = setInterval(() => setTimer(t => t + 1), 1000);
+    if (timerRunning && !hasWon && !hasLost) {
+      interval = setInterval(() => {
+        setTimer(t => t + 1);
+        if (gameMode === 'timeLimit' || gameMode === 'hardcore') {
+          setTimeRemaining(prev => {
+            if (prev <= 1) {
+              setHasLost(true);
+              setLossReason('Time Limit Expired! ⏳');
+              setTimerRunning(false);
+              setShowWinModal(true);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
+      }, 1000);
     }
     return () => clearInterval(interval);
-  }, [timerRunning, hasWon]);
+  }, [timerRunning, hasWon, hasLost, gameMode]);
 
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60);
@@ -285,7 +342,7 @@ export default function DifficultyColorGame() {
   const [limitAlert, setLimitAlert] = useState(null);
 
   const handlePegClick = (pegIdx) => {
-    if (hasWon) return;
+    if (hasWon || hasLost) return;
 
     if (selectedPeg === null) {
       if (pegs[pegIdx].length > 0) {
@@ -323,6 +380,16 @@ export default function DifficultyColorGame() {
         }
 
         const isWin = checkWinCondition(newPegs, newMoves, timer);
+
+        // Check if exceeded max moves in move limit / hardcore mode
+        const maxMoves = getMaxAllowedMoves();
+        if (!isWin && maxMoves && newMoves >= maxMoves) {
+          setHasLost(true);
+          setLossReason(`Maximum swap limit reached (${maxMoves} swaps max)! 🚫`);
+          setTimerRunning(false);
+          setShowWinModal(true);
+          return;
+        }
 
         // Sync move to multiplayer opponent
         if (isConnected && connRef.current && !isWin) {
@@ -475,7 +542,7 @@ export default function DifficultyColorGame() {
         )}
 
         {/* Difficulty Selection Bar */}
-        <div className="w-full max-w-4xl mb-4 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div className="w-full max-w-4xl mb-3 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="flex items-center justify-between w-full sm:w-auto gap-2">
             <span className="text-[10px] sm:text-xs font-extrabold uppercase text-slate-400">
               Difficulty:
@@ -510,28 +577,81 @@ export default function DifficultyColorGame() {
           </span>
         </div>
 
+        {/* Game Mode Selection Bar */}
+        <div className="w-full max-w-4xl mb-4 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+            <span className="text-[10px] sm:text-xs font-extrabold uppercase text-slate-400">
+              Game Mode:
+            </span>
+            <span className="text-[11px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800 sm:hidden">
+              {SPECIAL_MODES[gameMode].name}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full sm:flex-1 sm:max-w-xl">
+            {Object.keys(SPECIAL_MODES).map((modeKey) => {
+              const mode = SPECIAL_MODES[modeKey];
+              const isActive = gameMode === modeKey;
+              return (
+                <button
+                  key={modeKey}
+                  onClick={() => setGameMode(modeKey)}
+                  disabled={isConnected && !isHost}
+                  title={mode.desc}
+                  className={`py-2 px-2 rounded-xl text-xs font-black transition-all border touch-manipulation active:scale-95 flex flex-col items-center justify-center ${
+                    isActive
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-transparent hover:bg-slate-200 dark:hover:bg-slate-600'
+                  } ${isConnected && !isHost ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span>{mode.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <span className="hidden sm:inline-block text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800">
+            {SPECIAL_MODES[gameMode].desc}
+          </span>
+        </div>
+
         {/* Stats & Actions */}
         <div className="w-full max-w-4xl grid grid-cols-3 gap-2 sm:gap-4 mb-4">
           <div className="bg-white dark:bg-slate-800 p-2.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left">
-            <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-400">Moves</span>
-            <span className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400">{moves}</span>
+            <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-400">
+              {getMaxAllowedMoves() ? 'Swaps' : 'Moves'}
+            </span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400">{moves}</span>
+              {getMaxAllowedMoves() && (
+                <span className="text-xs font-bold text-slate-400">/ {getMaxAllowedMoves()} max</span>
+              )}
+            </div>
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-2.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left">
-            <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-400">Time</span>
-            <span className="text-xl sm:text-2xl font-black font-mono text-slate-700 dark:text-slate-200">{formatTime(timer)}</span>
+            <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-400">
+              {gameMode === 'timeLimit' || gameMode === 'hardcore' ? 'Time Left' : 'Time'}
+            </span>
+            <span className={`text-xl sm:text-2xl font-black font-mono ${
+              (gameMode === 'timeLimit' || gameMode === 'hardcore') && timeRemaining <= 15
+                ? 'text-rose-500 animate-pulse'
+                : 'text-slate-700 dark:text-slate-200'
+            }`}>
+              {gameMode === 'timeLimit' || gameMode === 'hardcore' ? formatTime(timeRemaining) : formatTime(timer)}
+            </span>
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-1.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-1 sm:gap-2">
             <button
-              onClick={() => initGame(difficulty)}
+              onClick={() => initGame(difficulty, gameMode)}
               className="flex-1 flex items-center justify-center gap-1 py-2 px-2 bg-slate-100 dark:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition touch-manipulation"
               title="Reset current puzzle"
             >
               <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Reset</span>
             </button>
             <button
-              onClick={() => initGame(difficulty)}
+              onClick={() => initGame(difficulty, gameMode)}
               className="flex-1 flex items-center justify-center gap-1 py-2 px-2 bg-indigo-600 active:bg-indigo-700 text-white font-bold rounded-xl text-xs transition touch-manipulation"
               title="Scramble new puzzle"
             >
@@ -726,7 +846,7 @@ export default function DifficultyColorGame() {
           )}
         </AnimatePresence>
 
-        {/* Win Modal */}
+        {/* Win / Game Over Modal */}
         <AnimatePresence>
           {showWinModal && (
             <motion.div
@@ -739,16 +859,24 @@ export default function DifficultyColorGame() {
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.9 }}
-                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center"
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl"
               >
-                <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-500">
-                  <Trophy className="w-8 h-8" />
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  hasLost 
+                    ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-500' 
+                    : 'bg-amber-100 dark:bg-amber-900/40 text-amber-500'
+                }`}>
+                  {hasLost ? <ShieldAlert className="w-8 h-8 animate-bounce" /> : <Trophy className="w-8 h-8" />}
                 </div>
+
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">
-                  {winnerName ? `${winnerName} Won!` : 'Puzzle Solved!'}
+                  {hasLost ? 'Game Over!' : winnerName ? `${winnerName} Won!` : 'Puzzle Solved!'}
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                  {winnerName === 'You'
+
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-4">
+                  {hasLost
+                    ? lossReason
+                    : winnerName === 'You'
                     ? 'Congratulations! You solved the puzzle first!'
                     : winnerName === 'Opponent'
                     ? 'Your opponent finished sorting their dice first!'
@@ -762,16 +890,22 @@ export default function DifficultyColorGame() {
                     <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">{moves}</p>
                   </div>
                   <div>
-                    <span className="text-[11px] font-bold uppercase text-slate-400">Time Taken</span>
-                    <p className="text-xl font-black font-mono text-slate-700 dark:text-slate-200">{formatTime(timer)}</p>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">
+                      {gameMode === 'timeLimit' || gameMode === 'hardcore' ? 'Time Left' : 'Time Taken'}
+                    </span>
+                    <p className="text-xl font-black font-mono text-slate-700 dark:text-slate-200">
+                      {gameMode === 'timeLimit' || gameMode === 'hardcore' ? formatTime(timeRemaining) : formatTime(timer)}
+                    </p>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => initGame(difficulty)}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition"
+                  onClick={() => initGame(difficulty, gameMode)}
+                  className={`w-full py-3 text-white font-bold text-sm rounded-xl transition ${
+                    hasLost ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
-                  Play Again
+                  {hasLost ? 'Try Again' : 'Play Again'}
                 </button>
               </motion.div>
             </motion.div>
